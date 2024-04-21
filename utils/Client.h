@@ -2,6 +2,7 @@
 // Created by okejka on 03.04.24.
 //
 #include "vector"
+#include "Destination.h"
 #include <random>
 
 #ifndef MULTITHREADING_PROJECT_CLIENT_H
@@ -21,6 +22,8 @@ public:
 
     Client(int id_client,int y_client_start, int x_client_start, int _destination);
 
+
+
     int get_id() const;
 
     char get_sign() const;
@@ -36,6 +39,8 @@ public:
     void set_y(int _y);
 
     void set_destination(int _destination);
+
+
 };
 
 

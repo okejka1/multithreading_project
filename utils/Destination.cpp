@@ -16,11 +16,11 @@ void Destination::draw_borders() {
 
 }
 
-int Destination::get_x(){
+int Destination::get_x() const {
     return x;
 }
 
-int Destination::get_y() {
+int Destination::get_y() const {
     return y;
 }
 

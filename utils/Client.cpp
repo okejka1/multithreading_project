@@ -1,6 +1,7 @@
 
 
 #include "Client.h"
+#include "Disposer.h"
 
 std::vector<char> Client::alphabet{'@', '#', '$', '&', '(', ')', '!'};
 
@@ -11,7 +12,7 @@ Client::Client(int id_client, int y_client_start, int x_client_start, int _desti
     x = x_client_start;
     destination = _destination;
 
-// gets 'entropy' from device that generates random numbers itself
+    // gets 'entropy' from device that generates random numbers itself
     // to seed a mersenne twister (pseudo) random generator
     std::mt19937 generator(std::random_device{}());
 
@@ -20,7 +21,6 @@ Client::Client(int id_client, int y_client_start, int x_client_start, int _desti
     std::uniform_int_distribution<std::size_t> distribution(0, alphabet.size() - 1);
 
     sign = alphabet[distribution(generator)];
-
 
 }
 
@@ -54,6 +54,13 @@ void Client::set_y(int _y) {
 
 void Client::set_destination(int _destination) {
     destination = _destination;
+}
+
+void Client::move(int _current_destination, Disposer &_disposer, std::vector<Destination> &_destinations) {
+
+
+
+
 }
 
 
