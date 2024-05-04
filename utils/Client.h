@@ -3,6 +3,7 @@
 //
 #include "vector"
 #include "Destination.h"
+#include "Disposer.h"
 #include <random>
 
 #ifndef MULTITHREADING_PROJECT_CLIENT_H
@@ -11,20 +12,25 @@
 
 class Client {
 private:
-    int id;
     char sign;
     int x;
     int y;
     int destination;
+    int speed;
+    bool arrived;
+    bool to_erased;
+    std::thread client_thread;
+
     static std::vector<char> alphabet;
 public:
 
 
-    Client(int id_client,int y_client_start, int x_client_start, int _destination);
+    Client(int y_client_start, int x_client_start, int _destination);
 
 
 
-    int get_id() const;
+
+    int get_speed() const;
 
     char get_sign() const;
 
@@ -41,6 +47,7 @@ public:
     void set_destination(int _destination);
 
 
+    void move(int _current_destination, Disposer &_disposer, std::vector<Destination> &_destinations);
 };
 
 
