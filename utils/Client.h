@@ -25,10 +25,15 @@ private:
 public:
 
 
-    Client(int y_client_start, int x_client_start, int _destination);
+    Client(int y_client_start, int x_client_start, int _destination, int &_current_destination, Disposer &_disposer, std::vector<Destination> &_destinations);
 
+    bool is_to_erased() const;
 
+    void set_to_erased(bool to_erased);
 
+    bool is_arrived() const;
+
+    void set_arrived(bool arrived);
 
     int get_speed() const;
 

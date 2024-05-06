@@ -7,36 +7,40 @@
 #include "utils/Client.h"
 #include "utils/Disposer.h"
 
-int DIRECTOR_Y = 10;
-int DIRECTOR_X = 45;
 
 Destination upper_base(5, 60);
 Destination middle_base(10, 60);
 Destination lower_base(15, 60);
 Disposer dispo(10,45);
-//  std::mutex vectorMutex;
 
-std::vector<Client> clients;
+
+std::vector<Client*> clients;
 std::vector<Destination> destinations{upper_base, middle_base, lower_base};
-bool end_condition = false;
-bool generate_c = true;
-int disposer_destination = 0;
 
-void generate_clients() {
-    while(generate_c) {
+
+volatile bool end_condition = false;
+int disposer_destination = 0;
+std::mutex clients_mutex;
+
+
+void generate_clients(volatile bool &close) {
+
+    while(!close) {
         std::random_device rd;
         std::mt19937 gen(rd());
         std::uniform_int_distribution<> distr_sleep(6,10);
 
-//        std::lock_guard<std::mutex> lock(vectorMutex);
-        Client newClient(10, 10, -1);
-        clients.push_back(newClient);
 
+//        std::lock_guard<std::mutex> lock(vectorMutex);
+        auto *newClient = new Client(10, 10, -1, disposer_destination, dispo,destinations);
+        clients_mutex.lock();
+        clients.push_back(newClient);
+        clients_mutex.unlock();
         std::this_thread::sleep_for(std::chrono::seconds(1 * distr_sleep(gen)));
     }
 }
 
-void disposer(bool close) {
+void disposer(volatile bool &close) {
     while (!close) {
         if (disposer_destination < 2) {
             disposer_destination++;
@@ -51,74 +55,69 @@ void disposer(bool close) {
 void print_disposer(int _disposer_destination) {
     switch (_disposer_destination) {
         case 0:
-            mvaddch(DIRECTOR_Y, DIRECTOR_X, ACS_UARROW);
+            mvaddch(dispo.get_y(), dispo.get_x(), ACS_UARROW);
             break;
         case 1:
-            mvaddch(DIRECTOR_Y, DIRECTOR_X, ACS_RARROW);
+            mvaddch(dispo.get_y(), dispo.get_x(), ACS_RARROW);
             break;
         case 2:
-            mvaddch(DIRECTOR_Y, DIRECTOR_X, ACS_DARROW);
+            mvaddch(dispo.get_y(), dispo.get_x(), ACS_DARROW);
             break;
     }
 }
 
 void display_all() {
-    clear();
-
-    while (!end_condition) {
         clear();
-
         // Move existing clients
         for(auto &client: clients) {
-            client.move(disposer_destination, dispo, destinations);
-            mvprintw(client.get_y(), client.get_x(), "%c", client.get_sign());
+            mvprintw(client->get_y(), client->get_x(), "%c", client->get_sign());
         }
-
         upper_base.draw_borders();
         middle_base.draw_borders();
         lower_base.draw_borders();
-
         // Print the disposer arrow based on current disposer_destination
         print_disposer(disposer_destination);
-
         // Refresh the screen
         refresh();
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-        // Check if the disposer thread has finished
-        if (end_condition)
-            break;
-    }
 }
 
 int main() {
-    initscr();
+    initscr(); // Initialize ncurses
+    curs_set(0); // Hide the cursor
+    nodelay(stdscr, TRUE); // Set non-blocking input
 
     // Start the client generation thread
-    std::thread generate_clients_thread(generate_clients);
-
+    std::thread generate_clients_thread(generate_clients, std::ref(end_condition));
     // Start the disposer thread
     std::thread disposer_thread(disposer, std::ref(end_condition));
 
-    // Run the main display loop
-    display_all();
+    while (!end_condition) {
 
-    int ch = getch();
-    if(ch == ' ') {
-        end_condition = false;
-        generate_c = false;
-        generate_clients_thread.join();
-        disposer_thread.join();
+        // Update client movements
+        for (auto &client : clients) {
+            client->move(disposer_destination, dispo, destinations);
+        }
+
+        // Display everything
+        display_all();
+        int c = getch();
+        if (c == ' ') {
+            end_condition = true;
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
-//    // Stop the client generation thread
-//    generate_c = false;
-//    generate_clients_thread.join();
-//
-//    // Wait for the disposer thread to finish
-//    disposer_thread.join();
-//
-//    getch(); // Wait for user input
-    endwin();
+    endwin(); // End ncurses mode
+    // Stop the client generation thread
+
+    generate_clients_thread.join();
+
+    // Wait for the disposer thread to finish
+    disposer_thread.join();
+
+    std::cout << "finished\n";
+
 
     return 0;
 }
+

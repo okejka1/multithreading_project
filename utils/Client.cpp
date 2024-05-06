@@ -9,14 +9,12 @@
 std::vector<char> Client::alphabet{'@', '#', '$', '&', '(', ')', '!'};
 
 
-Client::Client(int y_client_start, int x_client_start, int _destination) {
+Client::Client(int y_client_start, int x_client_start, int _destination, int &_disposer_destination, Disposer &disposer, std::vector<Destination> &destinations) {
     y = y_client_start;
     x = x_client_start;
     destination = _destination;
     arrived = false;
     to_erased = false;
-    client_thread(&Client::move, this);
-
 
     // gets 'entropy' from device that generates random numbers itself
     // to seed a mersenne twister (pseudo) random generator
@@ -29,10 +27,7 @@ Client::Client(int y_client_start, int x_client_start, int _destination) {
 
     sign = alphabet[dist_alphabet(generator)];
     speed = dist_speed(generator);
-
-
-
-
+    client_thread = std::thread(&Client::move, this, std::ref(_disposer_destination),std::ref(disposer), std::ref(destinations));
 }
 
 
@@ -81,10 +76,10 @@ void Client::move(int _current_destination, Disposer &_disposer, std::vector<Des
     } else if (this->destination == -1 && x == _disposer.get_x()) {
         this->destination = _current_destination;
     }
-    if(arrived) {
+
+    if(arrived && !to_erased) {
         std::this_thread::sleep_for(std::chrono::seconds(2));
-
-
+        to_erased = true;
     }
 
     switch (destination) {
@@ -118,15 +113,30 @@ void Client::move(int _current_destination, Disposer &_disposer, std::vector<Des
             }
             break;
         default:
-            std::cout << "\nlol\n";
             break;
     }
-    std::cout << "Current x: y:" << x << " " << y << "dest:" << destination;
+//    std::cout << "Current x: y:" << x << " " << y << "dest:" << destination;
 
 }
 
 int Client::get_speed() const {
     speed;
+}
+
+bool Client::is_to_erased() const {
+    return to_erased;
+}
+
+void Client::set_to_erased(bool _to_erased) {
+    to_erased = _to_erased;
+}
+
+bool Client::is_arrived() const {
+    return arrived;
+}
+
+void Client::set_arrived(bool _arrived) {
+   arrived = _arrived;
 }
 
 
