@@ -13,13 +13,12 @@ Client::Client(int y_client_start, int x_client_start, int _destination, int &_d
     y = y_client_start;
     x = x_client_start;
     destination = _destination;
+    is_running = true;
     arrived = false;
     to_erased = false;
-
     // gets 'entropy' from device that generates random numbers itself
     // to seed a mersenne twister (pseudo) random generator
     std::mt19937 generator(std::random_device{}());
-
     // make sure all numbers have an equal chance.
     // range is inclusive (so we need -1 for vector index)
     std::uniform_int_distribution<std::size_t> dist_alphabet(0, alphabet.size() - 1);
@@ -60,7 +59,7 @@ void Client::set_destination(int _destination) {
     destination = _destination;
 }
 
-void Client::move(int _current_destination, Disposer &_disposer, std::vector<Destination> &_destinations) {
+void Client::move(int &_current_destination, Disposer &_disposer, std::vector<Destination> &_destinations) {
     // Check if the client is not at the disposer's position
 
     // situations
@@ -69,18 +68,18 @@ void Client::move(int _current_destination, Disposer &_disposer, std::vector<Des
     // get y of final destination
     // get x of final destination
     // if at final destination mark client to be deleted after some time
-
-
+    while(is_running) {
     if (destination == -1 && x < _disposer.get_x()) {
         x++;
     } else if (this->destination == -1 && x == _disposer.get_x()) {
         this->destination = _current_destination;
     }
 
-    if(arrived && !to_erased) {
-        std::this_thread::sleep_for(std::chrono::seconds(2));
-        to_erased = true;
-    }
+//    if(arrived && !to_erased) {
+//        std::this_thread::sleep_for(std::chrono::seconds(2));
+//        is_running = false;
+//        to_erased = true;
+//    }
 
     switch (destination) {
         case 0:
@@ -115,7 +114,10 @@ void Client::move(int _current_destination, Disposer &_disposer, std::vector<Des
         default:
             break;
     }
+        std::this_thread::sleep_for(std::chrono::milliseconds(100/speed));
+
 //    std::cout << "Current x: y:" << x << " " << y << "dest:" << destination;
+        }
 
 }
 

@@ -17,28 +17,28 @@ Disposer dispo(10,45);
 std::vector<Client*> clients;
 std::vector<Destination> destinations{upper_base, middle_base, lower_base};
 
-
 volatile bool end_condition = false;
 int disposer_destination = 0;
-std::mutex clients_mutex;
 
 
 void generate_clients(volatile bool &close) {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> distr_sleep(3, 7);
 
-    while(!close) {
-        std::random_device rd;
-        std::mt19937 gen(rd());
-        std::uniform_int_distribution<> distr_sleep(6,10);
+    while (!close) {
+        std::this_thread::sleep_for(std::chrono::seconds(distr_sleep(gen)));
 
-
-//        std::lock_guard<std::mutex> lock(vectorMutex);
-        auto *newClient = new Client(10, 10, -1, disposer_destination, dispo,destinations);
-        clients_mutex.lock();
-        clients.push_back(newClient);
-        clients_mutex.unlock();
-        std::this_thread::sleep_for(std::chrono::seconds(1 * distr_sleep(gen)));
+        auto *new_client = new Client(10, 10, -1, disposer_destination, dispo, destinations);
+        {
+//            std::lock_guard<std::mutex> lock(clients_mutex);
+            clients.push_back(new_client);
+//            std::cout << "New client created at: " << new_client->get_x() << ", " << new_client->get_y() << std::endl;
+        }
     }
+
 }
+
 
 void disposer(volatile bool &close) {
     while (!close) {
@@ -69,21 +69,24 @@ void print_disposer(int _disposer_destination) {
 void display_all() {
         clear();
         // Move existing clients
-        for(auto &client: clients) {
-            mvprintw(client->get_y(), client->get_x(), "%c", client->get_sign());
-        }
         upper_base.draw_borders();
         middle_base.draw_borders();
         lower_base.draw_borders();
         // Print the disposer arrow based on current disposer_destination
+
+        for (auto& client : clients) {
+        mvprintw((*client).get_y(), (*client).get_x(), "%c", (*client).get_sign());
+        }
         print_disposer(disposer_destination);
+
         // Refresh the screen
         refresh();
+
 }
 
 int main() {
     initscr(); // Initialize ncurses
-    curs_set(0); // Hide the cursor
+//    curs_set(0); // Hide the cursor
     nodelay(stdscr, TRUE); // Set non-blocking input
 
     // Start the client generation thread
@@ -93,10 +96,12 @@ int main() {
 
     while (!end_condition) {
 
-        // Update client movements
-        for (auto &client : clients) {
-            client->move(disposer_destination, dispo, destinations);
+//        Update client movements
+        for (auto& client : clients) {
+            mvprintw((*client).get_y(), (*client).get_x(), "%c", (*client).get_sign());
         }
+
+
 
         // Display everything
         display_all();
