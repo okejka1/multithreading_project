@@ -20,7 +20,6 @@ private:
     bool arrived;
     bool to_erased;
     bool is_running;
-    std::thread client_thread;
 
     static std::vector<char> alphabet;
 public:
@@ -54,6 +53,8 @@ public:
 
 
     void move(int &_current_destination, Disposer &_disposer, std::vector<Destination> &_destinations);
+
+    std::thread client_thread;
 };
 
 

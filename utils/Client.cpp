@@ -22,7 +22,7 @@ Client::Client(int y_client_start, int x_client_start, int _destination, int &_d
     // make sure all numbers have an equal chance.
     // range is inclusive (so we need -1 for vector index)
     std::uniform_int_distribution<std::size_t> dist_alphabet(0, alphabet.size() - 1);
-    std::uniform_int_distribution<> dist_speed(0,4);
+    std::uniform_int_distribution<> dist_speed(1,3);
 
     sign = alphabet[dist_alphabet(generator)];
     speed = dist_speed(generator);
@@ -75,11 +75,11 @@ void Client::move(int &_current_destination, Disposer &_disposer, std::vector<De
         this->destination = _current_destination;
     }
 
-//    if(arrived && !to_erased) {
-//        std::this_thread::sleep_for(std::chrono::seconds(2));
-//        is_running = false;
-//        to_erased = true;
-//    }
+    if(arrived && !to_erased) {
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+        is_running = false;
+        to_erased = true;
+    }
 
     switch (destination) {
         case 0:

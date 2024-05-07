@@ -30,14 +30,41 @@ void generate_clients(volatile bool &close) {
         std::this_thread::sleep_for(std::chrono::seconds(distr_sleep(gen)));
 
         auto *new_client = new Client(10, 10, -1, disposer_destination, dispo, destinations);
-        {
+
 //            std::lock_guard<std::mutex> lock(clients_mutex);
             clients.push_back(new_client);
 //            std::cout << "New client created at: " << new_client->get_x() << ", " << new_client->get_y() << std::endl;
-        }
+
+
     }
 
 }
+
+//void delete_clients(volatile bool &close) {
+//
+//
+//    while (!close) {
+//        //std::lock_guard<std::mutex> lock(vectorMutex); // Lock the mutex
+//
+//        // Iterate through the clients vector
+//        for (auto it = clients.begin(); it != clients.end();) {
+//            Client *client = *it;
+//
+//            // Check if the client is marked for erasure
+//            if (client->is_to_erased()) {
+//                // Delete the client object and erase it from the vector
+//                delete client;
+//                it = clients.erase(it);
+//                client_thread.join();
+//            } else {
+//                ++it;
+//            }
+//        }
+//
+//        // Sleep for a short duration to avoid busy-waiting
+//        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+//    }
+//}
 
 
 void disposer(volatile bool &close) {
@@ -105,6 +132,23 @@ int main() {
 
         // Display everything
         display_all();
+
+        for (auto it = clients.begin(); it != clients.end(); ) {
+            Client *client = *it;
+            if (client->is_to_erased()) {
+                // Join the client's movement thread if it is still running
+                if (client->client_thread.joinable()) {
+                    client->client_thread.join();
+                }
+                // Delete the client object
+                delete client;
+                // Remove the client from the list
+                it = clients.erase(it);
+            } else {
+                // Move to the next client
+                ++it;
+            }
+        }
         int c = getch();
         if (c == ' ') {
             end_condition = true;
