@@ -2,7 +2,6 @@
 #include <ncurses.h>
 #include <unistd.h>
 #include <thread>
-#include <mutex>
 #include "utils/Destination.h"
 #include "utils/Client.h"
 #include "utils/Disposer.h"
@@ -27,44 +26,12 @@ void generate_clients(volatile bool &close) {
     std::uniform_int_distribution<> distr_sleep(3, 7);
 
     while (!close) {
-        std::this_thread::sleep_for(std::chrono::seconds(distr_sleep(gen)));
-
         auto *new_client = new Client(10, 10, -1, disposer_destination, dispo, destinations);
-
-//            std::lock_guard<std::mutex> lock(clients_mutex);
-            clients.push_back(new_client);
-//            std::cout << "New client created at: " << new_client->get_x() << ", " << new_client->get_y() << std::endl;
-
-
+        clients.push_back(new_client);
+        std::this_thread::sleep_for(std::chrono::seconds(distr_sleep(gen)));
     }
 
 }
-
-//void delete_clients(volatile bool &close) {
-//
-//
-//    while (!close) {
-//        //std::lock_guard<std::mutex> lock(vectorMutex); // Lock the mutex
-//
-//        // Iterate through the clients vector
-//        for (auto it = clients.begin(); it != clients.end();) {
-//            Client *client = *it;
-//
-//            // Check if the client is marked for erasure
-//            if (client->is_to_erased()) {
-//                // Delete the client object and erase it from the vector
-//                delete client;
-//                it = clients.erase(it);
-//                client_thread.join();
-//            } else {
-//                ++it;
-//            }
-//        }
-//
-//        // Sleep for a short duration to avoid busy-waiting
-//        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-//    }
-//}
 
 
 void disposer(volatile bool &close) {
@@ -95,57 +62,43 @@ void print_disposer(int _disposer_destination) {
 
 void display_all() {
         clear();
-        // Move existing clients
         upper_base.draw_borders();
         middle_base.draw_borders();
         lower_base.draw_borders();
-        // Print the disposer arrow based on current disposer_destination
 
         for (auto& client : clients) {
-        mvprintw((*client).get_y(), (*client).get_x(), "%c", (*client).get_sign());
+        mvprintw((*client).get_y(), (*client).get_x(), "%c", (*client).get_sign()); // Print existing positions of clients
         }
-        print_disposer(disposer_destination);
 
-        // Refresh the screen
+        print_disposer(disposer_destination);  // Print the disposer arrow based on current disposer_destination
         refresh();
 
 }
 
 int main() {
     initscr(); // Initialize ncurses
-//    curs_set(0); // Hide the cursor
     nodelay(stdscr, TRUE); // Set non-blocking input
+    curs_set(0);
+    noecho();
 
-    // Start the client generation thread
-    std::thread generate_clients_thread(generate_clients, std::ref(end_condition));
-    // Start the disposer thread
-    std::thread disposer_thread(disposer, std::ref(end_condition));
+    std::thread generate_clients_thread(generate_clients, std::ref(end_condition)); // Clients generation thread
+    std::thread disposer_thread(disposer, std::ref(end_condition)); // The disposer thread
 
     while (!end_condition) {
 
-//        Update client movements
         for (auto& client : clients) {
-            mvprintw((*client).get_y(), (*client).get_x(), "%c", (*client).get_sign());
+            mvprintw((*client).get_y(), (*client).get_x(), "%c", (*client).get_sign()); //Update client movements
         }
 
-
-
-        // Display everything
-        display_all();
+        display_all(); // Display everything
 
         for (auto it = clients.begin(); it != clients.end(); ) {
             Client *client = *it;
-            if (client->is_to_erased()) {
-                // Join the client's movement thread if it is still running
-                if (client->client_thread.joinable()) {
-                    client->client_thread.join();
-                }
-                // Delete the client object
-                delete client;
-                // Remove the client from the list
+            if (client->is_to_erased()) { // If it's ready to be erased
+                client->client_thread.join(); // Close thread
                 it = clients.erase(it);
+                delete client;
             } else {
-                // Move to the next client
                 ++it;
             }
         }
@@ -157,14 +110,28 @@ int main() {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     endwin(); // End ncurses mode
-    // Stop the client generation thread
+    std::cout << "*** CLOSING ALL OF THE THREADS ***\n";
+
 
     generate_clients_thread.join();
+    std::cout << "** Generating of clients stopped **\n";
 
-    // Wait for the disposer thread to finish
     disposer_thread.join();
+    std::cout << "** The disposer thread stopped **\n";
 
-    std::cout << "finished\n";
+    for (auto it = clients.begin(); it != clients.end(); ) {
+        Client *client = *it;
+        client->client_thread.join();
+        it = clients.erase(it);
+        delete client;
+    }
+//    generate_clients_thread.join();
+//    std::cout << "** Generating of clients stopped **\n";
+//
+//    disposer_thread.join();
+//    std::cout << "** The disposer thread stopped **\n";
+
+    std::cout << "Finished\n";
 
 
     return 0;

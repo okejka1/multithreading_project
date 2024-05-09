@@ -114,9 +114,8 @@ void Client::move(int &_current_destination, Disposer &_disposer, std::vector<De
         default:
             break;
     }
-        std::this_thread::sleep_for(std::chrono::milliseconds(100/speed));
+        std::this_thread::sleep_for(std::chrono::milliseconds(300/speed));
 
-//    std::cout << "Current x: y:" << x << " " << y << "dest:" << destination;
         }
 
 }
