@@ -16,25 +16,53 @@ Disposer dispo(10,45);
 std::vector<Client*> clients;
 std::vector<Destination> destinations{upper_base, middle_base, lower_base};
 
-volatile bool end_condition = false;
+bool end_condition = false;
 int disposer_destination = 0;
 
 
-void generate_clients(volatile bool &close) {
+void manage_clients(bool &close) {
+    // Initialize the random number generator for sleep duration
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> distr_sleep(3, 7);
 
-    while (!close) {
-        auto *new_client = new Client(10, 10, -1, disposer_destination, dispo, destinations);
-        clients.push_back(new_client);
-        std::this_thread::sleep_for(std::chrono::seconds(distr_sleep(gen)));
-    }
+    
+    auto next_generation_time = std::chrono::steady_clock::now();
+    auto next_deletion_time = std::chrono::steady_clock::now();
+    auto deletion_interval = std::chrono::seconds(2); 
 
+    while (!close) {
+
+        auto current_time = std::chrono::steady_clock::now();
+        if (current_time >= next_generation_time) {
+            auto *new_client = new Client(10, 10, -1, disposer_destination, dispo, destinations);
+            clients.push_back(new_client);
+
+            next_generation_time = current_time + std::chrono::seconds(distr_sleep(gen));
+        }
+
+        if (current_time >= next_deletion_time) {
+            for (auto it = clients.begin(); it != clients.end(); ) {
+                Client *client = *it;
+                if (client->is_to_erased()) {
+                    client->client_thread.join();
+                    it = clients.erase(it);
+                    delete client;
+                } else {
+                    ++it;
+                }
+            }
+
+            next_deletion_time = current_time + deletion_interval;
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
 }
 
 
-void disposer(volatile bool &close) {
+
+void disposer(bool &close) {
     while (!close) {
         if (disposer_destination < 2) {
             disposer_destination++;
@@ -61,12 +89,12 @@ void print_disposer(int _disposer_destination) {
 }
 
 void display_all() {
-        clear();
+        erase();
         upper_base.draw_borders();
         middle_base.draw_borders();
         lower_base.draw_borders();
 
-        for (auto& client : clients) {
+        for (auto &client : clients) {
         mvprintw((*client).get_y(), (*client).get_x(), "%c", (*client).get_sign()); // Print existing positions of clients
         }
 
@@ -77,31 +105,31 @@ void display_all() {
 
 int main() {
     initscr(); // Initialize ncurses
-    nodelay(stdscr, TRUE); // Set non-blocking input
+    nodelay(stdscr, TRUE);
     curs_set(0);
     noecho();
 
-    std::thread generate_clients_thread(generate_clients, std::ref(end_condition)); // Clients generation thread
+    std::thread generate_clients_thread(manage_clients, std::ref(end_condition)); // Clients generation thread
     std::thread disposer_thread(disposer, std::ref(end_condition)); // The disposer thread
 
     while (!end_condition) {
 
-        for (auto& client : clients) {
+        for (auto &client: clients) {
             mvprintw((*client).get_y(), (*client).get_x(), "%c", (*client).get_sign()); //Update client movements
         }
 
         display_all(); // Display everything
 
-        for (auto it = clients.begin(); it != clients.end(); ) {
-            Client *client = *it;
-            if (client->is_to_erased()) { // If it's ready to be erased
-                client->client_thread.join(); // Close thread
-                it = clients.erase(it);
-                delete client;
-            } else {
-                ++it;
-            }
-        }
+//        for (auto it = clients.begin(); it != clients.end(); ) {
+//            Client *client = *it;
+//            if (client->is_to_erased()) { // If it's ready to be erased
+//                client->client_thread.join(); // Close thread
+//                it = clients.erase(it);
+//                delete client;
+//            } else {
+//                ++it;
+//            }
+//        }
         int c = getch();
         if (c == ' ') {
             end_condition = true;
@@ -114,12 +142,12 @@ int main() {
 
 
     generate_clients_thread.join();
-    std::cout << "** Generating of clients stopped **\n";
+    std::cout << "** Management of clients thread stopped **\n";
 
     disposer_thread.join();
     std::cout << "** The disposer thread stopped **\n";
 
-    for (auto it = clients.begin(); it != clients.end(); ) {
+    for (auto it = clients.begin(); it != clients.end();) {
         Client *client = *it;
         client->client_thread.join();
         it = clients.erase(it);
@@ -132,7 +160,6 @@ int main() {
 //    std::cout << "** The disposer thread stopped **\n";
 
     std::cout << "Finished\n";
-
 
     return 0;
 }

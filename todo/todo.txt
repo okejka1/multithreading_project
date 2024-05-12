@@ -1,5 +1,0 @@
-to do:
-* each client working different theard
-* move Client movement out of display method
-* add deletion of clients 
-* exiting from the program with spacebar
