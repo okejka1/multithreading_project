@@ -1,35 +1,21 @@
-
-
-#include <iostream>
-#include <thread>
-#include <chrono>
+#include <algorithm>
 #include "Client.h"
-#include "Disposer.h"
 
 std::vector<char> Client::alphabet{'@', '#', '$', '&', '(', ')', '!'};
 
+Client::Client(int y_client_start, int x_client_start, int _destination, int &_disposer_destination, Disposer &_disposer, std::vector<Destination> &_destinations, std::mutex &mutex, std::condition_variable &cond_var, std::vector<Client*> &clients)
+        : y(y_client_start), x(x_client_start), destination(_destination), is_running(true), arrived(false), to_erased(false) {
 
-Client::Client(int y_client_start, int x_client_start, int _destination, int &_disposer_destination, Disposer &disposer, std::vector<Destination> &destinations) {
-    y = y_client_start;
-    x = x_client_start;
-    destination = _destination;
-    is_running = true;
-    arrived = false;
-    to_erased = false;
-    // gets 'entropy' from device that generates random numbers itself
-    // to seed a mersenne twister (pseudo) random generator
+    // Initialize random number generator
     std::mt19937 generator(std::random_device{}());
-    // make sure all numbers have an equal chance.
-    // range is inclusive (so we need -1 for vector index)
     std::uniform_int_distribution<std::size_t> dist_alphabet(0, alphabet.size() - 1);
-    std::uniform_int_distribution<> dist_speed(1,3);
+    std::uniform_int_distribution<> dist_speed(1, 3);
 
     sign = alphabet[dist_alphabet(generator)];
     speed = dist_speed(generator);
-    client_thread = std::thread(&Client::move, this, std::ref(_disposer_destination),std::ref(disposer), std::ref(destinations));
+
+    client_thread = std::thread(&Client::move, this, std::ref(_disposer_destination), std::ref(_disposer), std::ref(_destinations), std::ref(mutex), std::ref(cond_var), std::ref(clients));
 }
-
-
 
 char Client::get_sign() const {
     return sign;
@@ -59,69 +45,70 @@ void Client::set_destination(int _destination) {
     destination = _destination;
 }
 
-void Client::move(int &_current_destination, Disposer &_disposer, std::vector<Destination> &_destinations) {
-    // Check if the client is not at the disposer's position
-
-    // situations
-    // still not at the disposer
-    // at the coordinates of disposer -> given final destination
-    // get y of final destination
-    // get x of final destination
-    // if at final destination mark client to be deleted after some time
-    while(is_running) {
-    if (destination == -1 && x < _disposer.get_x()) {
-        x++;
-    } else if (this->destination == -1 && x == _disposer.get_x()) {
-        this->destination = _current_destination;
-    }
-
-    if(arrived && !to_erased) {
-        std::this_thread::sleep_for(std::chrono::seconds(2));
-        is_running = false;
-        to_erased = true;
-    }
-
-    switch (destination) {
-        case 0:
-            if (y >_destinations[0].get_y()) {
-                y--;
-            } else {
-                if(x < _destinations[0].get_x()) {
+void Client::move(int &_current_destination, Disposer &_disposer, std::vector<Destination> &_destinations, std::mutex &_mutex, std::condition_variable &cond_var, std::vector<Client*> &clients) {
+    while (is_running) {
+        {
+            std::unique_lock<std::mutex> lock(_mutex);
+            if (destination == -1) {
+                // Move towards the disposer
+                if (x < _disposer.get_x() - 1) {
                     x++;
+                } else if (x == _disposer.get_x() - 1) {
+                    // Wait until the destination is set and the path is free
+                    cond_var.wait(lock, [&] {
+                        return destination == _current_destination && std::none_of(clients.begin(), clients.end(), [this](Client* other) {
+                            return other != this && other->get_destination() == this->destination;
+                        });
+                    });
+                }
+            }
+        }
 
+        if (arrived && !to_erased) {
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            is_running = false;
+            to_erased = true;
+        }
+
+        // Move towards the destination
+        switch (destination) {
+            case 0:
+                if (y > _destinations[0].get_y()) {
+                    y--;
+                } else {
+                    if (x < _destinations[0].get_x()) {
+                        x++;
+                    } else {
+                        arrived = true;
+                    }
+                }
+                break;
+            case 1:
+                if (x < _destinations[1].get_x()) {
+                    x++;
                 } else {
                     arrived = true;
                 }
-            }
-            break;
-        case 1:
-            if (x < _destinations[1].get_x()){
-                x++;
-            } else {
-                arrived = true;
-            }
-            break;
-        case 2:
-            if (y < _destinations[2].get_y()) {
-                y++;
-            }
-            else if(x < _destinations[2].get_x()) {
-                x++;
-            } else {
-                arrived = true;
-            }
-            break;
-        default:
-            break;
-    }
-        std::this_thread::sleep_for(std::chrono::milliseconds(300/speed));
-
+                break;
+            case 2:
+                if (y < _destinations[2].get_y()) {
+                    y++;
+                } else if (x < _destinations[2].get_x()) {
+                    x++;
+                } else {
+                    arrived = true;
+                }
+                break;
+            default:
+                break;
         }
 
+        std::this_thread::sleep_for(std::chrono::milliseconds(300 / speed));
+    }
 }
 
 int Client::get_speed() const {
-    speed;
+    return speed;
 }
 
 bool Client::is_to_erased() const {
@@ -137,10 +124,5 @@ bool Client::is_arrived() const {
 }
 
 void Client::set_arrived(bool _arrived) {
-   arrived = _arrived;
+    arrived = _arrived;
 }
-
-
-
-
-
