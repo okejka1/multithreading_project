@@ -62,9 +62,10 @@ void Client::move(int &_current_destination, Disposer &_disposer, std::vector<De
                 if (x < _disposer.get_x() - 1) {
                     x++;
                 } else if (x == _disposer.get_x() - 1) {
-                    cond_var.wait(lock, [this, &_current_destination] {
-                        return destination == _current_destination;
+                    cond_var.wait(lock, [this, &_current_destination, &clients] {
+                       return  !is_occupied(clients,_current_destination);
                     });
+                    destination = _current_destination;
                 }
 
             }

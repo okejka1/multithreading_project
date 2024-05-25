@@ -78,25 +78,25 @@ void disposer(bool &close) {
             } else {
                 disposer_destination = 0; // reset disposer_destination to 0
             }
-
+            cond_var.notify_one();
             // Check if any clients are waiting
-            std::vector<Client*> waiting_clients;
-            for (auto &client : clients) {
-                if (client->get_destination() == -1 && client->get_x() == dispo.get_x() - 1) {
-                    waiting_clients.push_back(client);
-                }
-            }
-
-            // Notify one random client from the waiting clients if the path is free
-            if (!waiting_clients.empty()) {
-                distr_client = std::uniform_int_distribution<>(0, waiting_clients.size() - 1);
-                Client* chosen_client = waiting_clients[distr_client(gen)];
-
-                if (!Client::is_occupied(clients, disposer_destination)) {
-                    chosen_client->set_destination(disposer_destination);
-                    cond_var.notify_all();
-                }
-            }
+//            std::vector<Client*> waiting_clients;
+//            for (auto &client : clients) {
+//                if (client->get_destination() == -1 && client->get_x() == dispo.get_x() - 1) {
+//                    waiting_clients.push_back(client);
+//                }
+//            }
+//
+//            // Notify one random client from the waiting clients if the path is free
+//            if (!waiting_clients.empty()) {
+//                distr_client = std::uniform_int_distribution<>(0, waiting_clients.size() - 1);
+//                Client* chosen_client = waiting_clients[distr_client(gen)];
+//
+//                if (!Client::is_occupied(clients, disposer_destination)) {
+////                    chosen_client->set_destination(disposer_destination);
+//                    cond_var.notify_all();
+//                }
+//            }
         }
         std::this_thread::sleep_for(std::chrono::seconds(2));
     }
