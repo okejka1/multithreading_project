@@ -26,7 +26,7 @@ int disposer_destination = 0;
 void manage_clients(bool &close) {
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<> distr_sleep(1, 1);
+    std::uniform_int_distribution<> distr_sleep(1, 3);
 
     auto next_generation_time = std::chrono::steady_clock::now();
     auto next_deletion_time = std::chrono::steady_clock::now();
@@ -36,12 +36,17 @@ void manage_clients(bool &close) {
         auto current_time = std::chrono::steady_clock::now();
         if (current_time >= next_generation_time) {
             auto *new_client = new Client(10, 10, -1, disposer_destination, dispo, destinations, clients_mutex, cond_var, clients);
-            clients.push_back(new_client);
+            {
+                std::lock_guard<std::mutex> lock(clients_mutex);
+                clients.push_back(new_client);
+
+            }
 
             next_generation_time = current_time + std::chrono::seconds(distr_sleep(gen));
         }
 
         if (current_time >= next_deletion_time) {
+            std::lock_guard<std::mutex> lock(clients_mutex);
             for (auto it = clients.begin(); it != clients.end();) {
                 Client *client = *it;
                 if (client->is_to_erased()) {
@@ -82,17 +87,21 @@ void disposer(bool &close) {
                 }
             }
 
-            // Notify one random client from the waiting clients
+            // Notify one random client from the waiting clients if the path is free
             if (!waiting_clients.empty()) {
                 distr_client = std::uniform_int_distribution<>(0, waiting_clients.size() - 1);
                 Client* chosen_client = waiting_clients[distr_client(gen)];
-                chosen_client->set_destination(disposer_destination);
-                cond_var.notify_all();
+
+                if (!Client::is_occupied(clients, disposer_destination)) {
+                    chosen_client->set_destination(disposer_destination);
+                    cond_var.notify_all();
+                }
             }
         }
-        std::this_thread::sleep_for(std::chrono::seconds(3));
+        std::this_thread::sleep_for(std::chrono::seconds(2));
     }
 }
+
 
 void print_disposer(int _disposer_destination) {
     switch (_disposer_destination) {

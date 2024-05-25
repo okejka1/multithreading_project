@@ -42,6 +42,8 @@ public:
     void move(int &_current_destination, Disposer &_disposer, std::vector<Destination> &_destinations, std::mutex &mutex, std::condition_variable &cond_var, std::vector<Client*> &clients);
 
     std::thread client_thread;
+
+    static bool is_occupied(std::vector<Client *> &clients, int &_current_destination);
 };
 
 #endif //MULTITHREADING_PROJECT_CLIENT_H

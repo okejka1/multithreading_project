@@ -45,6 +45,14 @@ void Client::set_destination(int _destination) {
     destination = _destination;
 }
 
+bool Client::is_occupied(std::vector<Client*> &clients, int &_current_destination) {
+    for(Client * &client: clients) {
+        if(client->get_destination() == _current_destination)
+        return true;
+    }
+        return false;
+}
+
 void Client::move(int &_current_destination, Disposer &_disposer, std::vector<Destination> &_destinations, std::mutex &_mutex, std::condition_variable &cond_var, std::vector<Client*> &clients) {
     while (is_running) {
         {
@@ -54,18 +62,16 @@ void Client::move(int &_current_destination, Disposer &_disposer, std::vector<De
                 if (x < _disposer.get_x() - 1) {
                     x++;
                 } else if (x == _disposer.get_x() - 1) {
-                    // Wait until the destination is set and the path is free
-                    cond_var.wait(lock, [&] {
-                        return destination == _current_destination && std::none_of(clients.begin(), clients.end(), [this](Client* other) {
-                            return other != this && other->get_destination() == this->destination;
-                        });
+                    cond_var.wait(lock, [this, &_current_destination] {
+                        return destination == _current_destination;
                     });
                 }
+
             }
         }
 
         if (arrived && !to_erased) {
-            std::this_thread::sleep_for(std::chrono::seconds(2));
+            std::this_thread::sleep_for(std::chrono::seconds(4));
             is_running = false;
             to_erased = true;
         }
@@ -105,6 +111,8 @@ void Client::move(int &_current_destination, Disposer &_disposer, std::vector<De
 
         std::this_thread::sleep_for(std::chrono::milliseconds(300 / speed));
     }
+
+
 }
 
 int Client::get_speed() const {
