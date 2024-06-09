@@ -5,6 +5,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <random>
+#include <queue>
 #include "utils/Destination.h"
 #include "utils/Client.h"
 #include "utils/Disposer.h"
@@ -16,12 +17,27 @@ Disposer dispo(10, 45);
 
 std::vector<Client *> clients;
 std::vector<Destination> destinations{upper_base, middle_base, lower_base};
+std::queue<Client *> waiting_clients;
 
 std::mutex clients_mutex;
 std::condition_variable cond_var;
 
 bool end_condition = false;
 int disposer_destination = 0;
+
+void display_queue() {
+    int y = 20; // Starting y position for the queue display
+    int x = 0; // Starting x position for the queue display
+    mvprintw(y++, x, "Waiting Queue:");
+
+    std::queue<Client *> temp_queue = waiting_clients; // Create a copy of the queue
+
+    while (!temp_queue.empty()) {
+        Client *client = temp_queue.front();
+        mvprintw(y, x++, "%c", client->get_sign());
+        temp_queue.pop();
+    }
+}
 
 void manage_clients(bool &close) {
     std::random_device rd;
@@ -30,7 +46,7 @@ void manage_clients(bool &close) {
 
     auto next_generation_time = std::chrono::steady_clock::now();
     auto next_deletion_time = std::chrono::steady_clock::now();
-    auto deletion_interval = std::chrono::seconds(2);
+    auto deletion_interval = std::chrono::seconds(1);
 
     while (!close) {
         auto current_time = std::chrono::steady_clock::now();
@@ -53,6 +69,7 @@ void manage_clients(bool &close) {
                     client->client_thread.join();
                     it = clients.erase(it);
                     delete client;
+                    cond_var.notify_all();
                 } else {
                     ++it;
                 }
@@ -79,24 +96,14 @@ void disposer(bool &close) {
                 disposer_destination = 0; // reset disposer_destination to 0
             }
             cond_var.notify_one();
-            // Check if any clients are waiting
-//            std::vector<Client*> waiting_clients;
-//            for (auto &client : clients) {
-//                if (client->get_destination() == -1 && client->get_x() == dispo.get_x() - 1) {
-//                    waiting_clients.push_back(client);
-//                }
-//            }
 //
 //            // Notify one random client from the waiting clients if the path is free
-//            if (!waiting_clients.empty()) {
-//                distr_client = std::uniform_int_distribution<>(0, waiting_clients.size() - 1);
-//                Client* chosen_client = waiting_clients[distr_client(gen)];
-//
-//                if (!Client::is_occupied(clients, disposer_destination)) {
-////                    chosen_client->set_destination(disposer_destination);
-//                    cond_var.notify_all();
-//                }
+//            if (!waiting_clients.empty() && !Client::is_occupied(clients,disposer_destination)) {
+//                Client * client = waiting_clients.front();
+//                client -> set_destination(disposer_destination);
+//                cond_var.notify_all();
 //            }
+
         }
         std::this_thread::sleep_for(std::chrono::seconds(2));
     }
@@ -126,6 +133,8 @@ void display_all() {
     for (auto &client : clients) {
         mvprintw(client->get_y(), client->get_x(), "%c", client->get_sign()); // Print existing positions of clients
     }
+
+    display_queue();
 
     print_disposer(disposer_destination); // Print the disposer arrow based on current disposer_destination
     refresh();

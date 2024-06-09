@@ -1,5 +1,8 @@
 #include <algorithm>
+#include <queue>
 #include "Client.h"
+
+extern std::queue<Client *> waiting_clients;
 
 std::vector<char> Client::alphabet{'@', '#', '$', '&', '(', ')', '!'};
 
@@ -55,6 +58,22 @@ bool Client::is_occupied(std::vector<Client*> &clients, int &_current_destinatio
 
 void Client::move(int &_current_destination, Disposer &_disposer, std::vector<Destination> &_destinations, std::mutex &_mutex, std::condition_variable &cond_var, std::vector<Client*> &clients) {
     while (is_running) {
+//        {
+////            std::unique_lock<std::mutex> lock(_mutex);
+//            if (destination == -1) {
+//                // Move towards the disposer
+//                if (x < _disposer.get_x() - 1) {
+//                    x++;
+//                } else if (x == _disposer.get_x() - 1) {
+//                    std::unique_lock<std::mutex> lock(_mutex);
+//                    cond_var.wait(lock, [this, &_current_destination, &clients] {
+//                       return  !is_occupied(clients,_current_destination);
+//                    });
+//                    destination = _current_destination;
+//                }
+//
+//            }
+//        }
         {
             std::unique_lock<std::mutex> lock(_mutex);
             if (destination == -1) {
@@ -62,12 +81,15 @@ void Client::move(int &_current_destination, Disposer &_disposer, std::vector<De
                 if (x < _disposer.get_x() - 1) {
                     x++;
                 } else if (x == _disposer.get_x() - 1) {
-                    cond_var.wait(lock, [this, &_current_destination, &clients] {
-                       return  !is_occupied(clients,_current_destination);
+                    // Enqueue this client and wait until it is its turn
+                    waiting_clients.push(this);
+                    cond_var.wait(lock, [this, &clients, &_current_destination] {
+                        return waiting_clients.front() == this && !is_occupied(clients, _current_destination);
                     });
+                    // Dequeue the client
+                    waiting_clients.pop();
                     destination = _current_destination;
                 }
-
             }
         }
 
