@@ -11,6 +11,14 @@
 #ifndef MULTITHREADING_PROJECT_CLIENT_H
 #define MULTITHREADING_PROJECT_CLIENT_H
 
+#include <vector>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+
+class Disposer;
+class Destination;
+
 class Client {
 private:
     char sign;
@@ -26,6 +34,7 @@ private:
 
 public:
     Client(int y_client_start, int x_client_start, int _destination, int &_disposer_destination, Disposer &_disposer, std::vector<Destination> &_destinations, std::mutex &mutex, std::condition_variable &cond_var, std::vector<Client*> &clients);
+    ~Client();
 
     bool is_to_erased() const;
     void set_to_erased(bool to_erased);
@@ -44,6 +53,7 @@ public:
     std::thread client_thread;
 
     static bool is_occupied(std::vector<Client *> &clients, int &_current_destination);
+    bool at_disposer(const Disposer &_disposer) const;
 };
 
 #endif //MULTITHREADING_PROJECT_CLIENT_H

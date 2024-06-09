@@ -1,8 +1,14 @@
-#include <algorithm>
-#include <queue>
 #include "Client.h"
+#include "Disposer.h"
+#include "Destination.h"
+#include <random>
+#include <iostream>
+#include <mutex>
+#include <condition_variable>
+#include <queue>
 
 extern std::queue<Client *> waiting_clients;
+extern std::mutex queue_mutex;
 
 std::vector<char> Client::alphabet{'@', '#', '$', '&', '(', ')', '!'};
 
@@ -18,6 +24,12 @@ Client::Client(int y_client_start, int x_client_start, int _destination, int &_d
     speed = dist_speed(generator);
 
     client_thread = std::thread(&Client::move, this, std::ref(_disposer_destination), std::ref(_disposer), std::ref(_destinations), std::ref(mutex), std::ref(cond_var), std::ref(clients));
+}
+
+Client::~Client() {
+    if (client_thread.joinable()) {
+        client_thread.join();
+    }
 }
 
 char Client::get_sign() const {
@@ -51,29 +63,17 @@ void Client::set_destination(int _destination) {
 bool Client::is_occupied(std::vector<Client*> &clients, int &_current_destination) {
     for(Client * &client: clients) {
         if(client->get_destination() == _current_destination)
-        return true;
+            return true;
     }
-        return false;
+    return false;
+}
+
+bool Client::at_disposer(const Disposer &_disposer) const {
+    return x == _disposer.get_x() - 1;
 }
 
 void Client::move(int &_current_destination, Disposer &_disposer, std::vector<Destination> &_destinations, std::mutex &_mutex, std::condition_variable &cond_var, std::vector<Client*> &clients) {
     while (is_running) {
-//        {
-////            std::unique_lock<std::mutex> lock(_mutex);
-//            if (destination == -1) {
-//                // Move towards the disposer
-//                if (x < _disposer.get_x() - 1) {
-//                    x++;
-//                } else if (x == _disposer.get_x() - 1) {
-//                    std::unique_lock<std::mutex> lock(_mutex);
-//                    cond_var.wait(lock, [this, &_current_destination, &clients] {
-//                       return  !is_occupied(clients,_current_destination);
-//                    });
-//                    destination = _current_destination;
-//                }
-//
-//            }
-//        }
         {
             std::unique_lock<std::mutex> lock(_mutex);
             if (destination == -1) {
@@ -81,14 +81,20 @@ void Client::move(int &_current_destination, Disposer &_disposer, std::vector<De
                 if (x < _disposer.get_x() - 1) {
                     x++;
                 } else if (x == _disposer.get_x() - 1) {
-                    // Enqueue this client and wait until it is its turn
-                    waiting_clients.push(this);
-                    cond_var.wait(lock, [this, &clients, &_current_destination] {
-                        return waiting_clients.front() == this && !is_occupied(clients, _current_destination);
+                    {
+                        std::lock_guard<std::mutex> queue_lock(queue_mutex);
+                        waiting_clients.push(this);
+                    }
+                    cond_var.wait(lock, [this, &_current_destination, &clients] {
+                        return !is_occupied(clients, _current_destination) && waiting_clients.front() == this;
                     });
-                    // Dequeue the client
-                    waiting_clients.pop();
-                    destination = _current_destination;
+                    if (waiting_clients.front() == this) {
+                        destination = _current_destination;
+                        {
+                            std::lock_guard<std::mutex> queue_lock(queue_mutex);
+                            waiting_clients.pop();
+                        }
+                    }
                 }
             }
         }
@@ -134,8 +140,6 @@ void Client::move(int &_current_destination, Disposer &_disposer, std::vector<De
 
         std::this_thread::sleep_for(std::chrono::milliseconds(300 / speed));
     }
-
-
 }
 
 int Client::get_speed() const {
