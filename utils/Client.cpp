@@ -68,9 +68,9 @@ bool Client::is_occupied(std::vector<Client*> &clients, int &_current_destinatio
     return false;
 }
 
-bool Client::at_disposer(const Disposer &_disposer) const {
-    return x == _disposer.get_x() - 1;
-}
+//bool Client::at_disposer(const Disposer &_disposer) const {
+//    return x == _disposer.get_x() - 1;
+//}
 
 void Client::move(int &_current_destination, Disposer &_disposer, std::vector<Destination> &_destinations, std::mutex &_mutex, std::condition_variable &cond_var, std::vector<Client*> &clients) {
     while (is_running) {

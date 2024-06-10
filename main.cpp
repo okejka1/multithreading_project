@@ -101,13 +101,13 @@ void display_queue() {
 
     mvprintw(1,1,"%s", "Waiting queue:");
     std::lock_guard<std::mutex> lock(queue_mutex);
-    int queue_y = 2;  // Starting Y position to display the queue
-    int queue_x = 2;  // Starting X position to display the queue
+    int queue_y = 2;
+    int queue_x = 2;
     int count = 0;
     std::queue<Client *> temp_queue = waiting_clients;  // Make a copy to display
     while (!temp_queue.empty()) {
         Client *client = temp_queue.front();
-        mvprintw(queue_y, queue_x+ count, "%c", client->get_sign());
+        mvprintw(queue_y, queue_x + count, "%c", client->get_sign());
         temp_queue.pop();
         count++;
     }
